@@ -29,8 +29,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const rawBody = await request.text();
   const params = Object.fromEntries(new URLSearchParams(rawBody));
 
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_TOKEN;
+  const accountSid = process.env.TWILIO_SSID;
 
   if (authToken) {
     const signature = request.headers.get('x-twilio-signature') || '';
