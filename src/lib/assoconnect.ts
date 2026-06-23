@@ -38,3 +38,64 @@ export function getOrganization(ulid = process.env.ASSOCONNECT_ORGANIZATION_ULID
   if (!ulid) throw new Error("ASSOCONNECT_ORGANIZATION_ULID is not set");
   return request<Organization>(`/organizations/${ulid}`);
 }
+
+export async function createExpenseReport(data: {
+  date: string;
+  amount: number;
+  currency: string;
+  description: string;
+}): Promise<string> {
+  const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
+  const personIri = process.env.ASSOCONNECT_PERSON_IRI;
+
+  const response = await fetch(`${BASE_URL}/finance_expense_reports`, {
+    method: 'POST',
+    headers: {
+      'X-AUTH-TOKEN': process.env.ASSOCONNECT_API_KEY!,
+      'Accept': 'application/ld+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      organization: `/api/v1/organizations/${orgUlid}`,
+      person: personIri,
+      date: data.date,
+      category: 'other',
+      comment: data.description,
+      amount: {
+        amount: data.amount,
+        currency: data.currency,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AssoConnect API error: ${response.status} ${await response.text()}`);
+  }
+
+  const result = await response.json();
+  return result['@id'] as string;
+}
+
+export async function uploadExpenseFile(expenseReportIri: string, imageUrl: string): Promise<void> {
+  const imageResponse = await fetch(imageUrl);
+  const imageBuffer = await imageResponse.arrayBuffer();
+  const base64Image = Buffer.from(imageBuffer).toString('base64');
+
+  const response = await fetch(`${BASE_URL}/finance_expense_report_files`, {
+    method: 'POST',
+    headers: {
+      'X-AUTH-TOKEN': process.env.ASSOCONNECT_API_KEY!,
+      'Accept': 'application/ld+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      expenseReport: expenseReportIri,
+      mediaObject: base64Image,
+      extension: 'jpg',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`AssoConnect file upload error: ${response.status} ${await response.text()}`);
+  }
+}
