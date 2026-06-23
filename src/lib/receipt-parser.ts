@@ -30,7 +30,7 @@ export async function parseReceipt(
   const imageExtension = contentType.includes('png') ? 'png' : 'jpg';
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-opus-4-8',
     max_tokens: 1024,
     messages: [
       {
