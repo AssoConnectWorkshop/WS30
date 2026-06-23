@@ -3,6 +3,7 @@ import { validateRequest } from 'twilio';
 import { getState, setState, clearState } from '@/lib/conversation-state';
 import { parseReceipt } from '@/lib/receipt-parser';
 import { createExpenseReport, uploadExpenseFile } from '@/lib/assoconnect';
+import { createClient } from '@/lib/supabase/server';
 
 function twimlResponse(message: string): NextResponse {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -10,6 +11,18 @@ function twimlResponse(message: string): NextResponse {
   <Message>${message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Message>
 </Response>`;
   return new NextResponse(xml, { headers: { 'Content-Type': 'text/xml' } });
+}
+
+async function getPersonIri(phone: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('phone_to_person')
+    .select('person_iri')
+    .or(`phone.eq.${phone},phone.eq.*`)
+    .order('phone', { ascending: false }) // exact match (non-*) sorts first
+    .limit(1)
+    .single();
+  return data?.person_iri ?? null;
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -86,7 +99,12 @@ async function handleMessage(
   if (state?.step === 'awaiting_confirmation') {
     if (['ok', 'oui', 'yes', 'confirm'].includes(normalized)) {
       try {
-        const expenseIri = await createExpenseReport(state.data);
+        const personIri = await getPersonIri(from);
+        if (!personIri) {
+          clearState(from);
+          return twimlResponse('Your phone number is not registered. Please contact an administrator.');
+        }
+        const expenseIri = await createExpenseReport({ ...state.data, personIri });
         await uploadExpenseFile(expenseIri, state.data.imageBase64, state.data.imageExtension);
         clearState(from);
         return twimlResponse(

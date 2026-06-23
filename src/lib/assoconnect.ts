@@ -44,9 +44,9 @@ export async function createExpenseReport(data: {
   amount: number;
   currency: string;
   description: string;
+  personIri: string;
 }): Promise<string> {
   const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
-  const personIri = process.env.ASSOCONNECT_PERSON_IRI;
 
   const response = await fetch(`${BASE_URL}/finance_expense_reports`, {
     method: 'POST',
@@ -57,7 +57,7 @@ export async function createExpenseReport(data: {
     },
     body: JSON.stringify({
       organization: `/api/v1/organizations/${orgUlid}`,
-      person: personIri,
+      person: data.personIri,
       date: data.date,
       category: 'other',
       comment: data.description,
