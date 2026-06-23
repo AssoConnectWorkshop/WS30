@@ -1,12 +1,15 @@
+export type PendingExpenseData = {
+  date: string;
+  amount: number;
+  currency: string;
+  description: string;
+  imageBase64: string;
+  imageExtension: string;
+};
+
 type ConversationState = {
   step: 'awaiting_confirmation';
-  data: {
-    date: string;
-    amount: number;
-    currency: string;
-    description: string;
-    imageUrl: string;
-  };
+  data: PendingExpenseData;
 };
 
 const conversationStates = new Map<string, ConversationState>();

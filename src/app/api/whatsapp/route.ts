@@ -9,9 +9,7 @@ function twimlResponse(message: string): NextResponse {
 <Response>
   <Message>${message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Message>
 </Response>`;
-  return new NextResponse(xml, {
-    headers: { 'Content-Type': 'text/xml' },
-  });
+  return new NextResponse(xml, { headers: { 'Content-Type': 'text/xml' } });
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -19,10 +17,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const params = Object.fromEntries(new URLSearchParams(rawBody));
 
   const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+
   if (authToken) {
     const signature = request.headers.get('x-twilio-signature') || '';
-    const url = request.url;
-    const isValid = validateRequest(authToken, signature, url, params);
+    const isValid = validateRequest(authToken, signature, request.url, params);
     if (!isValid) {
       return new NextResponse('Forbidden', { status: 403 });
     }
@@ -32,21 +31,27 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const bodyText: string = params['Body'] || '';
   const mediaUrl: string = params['MediaUrl0'] || '';
 
-  return handleMessage(from, bodyText, mediaUrl);
+  return handleMessage(from, bodyText, mediaUrl, accountSid || '', authToken || '');
 }
 
-async function handleMessage(from: string, bodyText: string, mediaUrl: string): Promise<NextResponse> {
+async function handleMessage(
+  from: string,
+  bodyText: string,
+  mediaUrl: string,
+  accountSid: string,
+  authToken: string
+): Promise<NextResponse> {
   const normalized = bodyText.trim().toLowerCase();
 
   if (normalized === 'pending' || normalized === 'en attente') {
     try {
       const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
       const response = await fetch(
-        `https://app.assoconnect.com/api/v1/organizations/${orgUlid}/finance_expense_reports?status=pending`,
+        `https://app.assoconnect.com/api/v1/organizations/${orgUlid}/finance_expense_reports`,
         {
           headers: {
             'X-AUTH-TOKEN': process.env.ASSOCONNECT_API_KEY!,
-            'Accept': 'application/ld+json',
+            Accept: 'application/ld+json',
           },
         }
       );
@@ -55,17 +60,18 @@ async function handleMessage(from: string, bodyText: string, mediaUrl: string): 
         return twimlResponse('Could not fetch pending expense reports.');
       }
 
-      const data = await response.json();
+      const data = await response.json() as { 'hydra:member'?: Array<{ date?: string; comment?: string; amount?: { amount?: number; currency?: string }; status?: string }> };
       const reports = data['hydra:member'] || [];
 
       if (reports.length === 0) {
         return twimlResponse('No pending expense reports found.');
       }
 
-      const list = (reports as Array<{ date?: string; comment?: string; amount?: { amount?: number; currency?: string } }>)
+      const list = reports
         .slice(0, 10)
-        .map((r, i) =>
-          `${i + 1}. ${r.date || '?'} - ${r.comment || '?'} (${r.amount?.amount || '?'} ${r.amount?.currency || '?'})`
+        .map(
+          (r, i) =>
+            `${i + 1}. ${r.date || '?'} - ${r.comment || '?'} (${r.amount?.amount || '?'} ${r.amount?.currency || '?'})`
         )
         .join('\n');
 
@@ -81,7 +87,7 @@ async function handleMessage(from: string, bodyText: string, mediaUrl: string): 
     if (['ok', 'oui', 'yes', 'confirm'].includes(normalized)) {
       try {
         const expenseIri = await createExpenseReport(state.data);
-        await uploadExpenseFile(expenseIri, state.data.imageUrl);
+        await uploadExpenseFile(expenseIri, state.data.imageBase64, state.data.imageExtension);
         clearState(from);
         return twimlResponse(
           `Expense report created successfully!\n${state.data.date} - ${state.data.description} (${state.data.amount} ${state.data.currency})`
@@ -98,10 +104,10 @@ async function handleMessage(from: string, bodyText: string, mediaUrl: string): 
 
   if (mediaUrl) {
     try {
-      const extracted = await parseReceipt(mediaUrl);
+      const extracted = await parseReceipt(mediaUrl, accountSid, authToken);
       setState(from, {
         step: 'awaiting_confirmation',
-        data: { ...extracted, imageUrl: mediaUrl },
+        data: extracted,
       });
 
       return twimlResponse(
@@ -112,5 +118,7 @@ async function handleMessage(from: string, bodyText: string, mediaUrl: string): 
     }
   }
 
-  return twimlResponse('Send a receipt photo to create an expense report. Reply "pending" to see pending reports.');
+  return twimlResponse(
+    'Send a receipt photo to create an expense report. Reply "pending" to see pending reports.'
+  );
 }

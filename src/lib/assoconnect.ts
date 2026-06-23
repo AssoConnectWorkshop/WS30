@@ -76,11 +76,11 @@ export async function createExpenseReport(data: {
   return result['@id'] as string;
 }
 
-export async function uploadExpenseFile(expenseReportIri: string, imageUrl: string): Promise<void> {
-  const imageResponse = await fetch(imageUrl);
-  const imageBuffer = await imageResponse.arrayBuffer();
-  const base64Image = Buffer.from(imageBuffer).toString('base64');
-
+export async function uploadExpenseFile(
+  expenseReportIri: string,
+  imageBase64: string,
+  extension = 'jpg'
+): Promise<void> {
   const response = await fetch(`${BASE_URL}/finance_expense_report_files`, {
     method: 'POST',
     headers: {
@@ -90,8 +90,8 @@ export async function uploadExpenseFile(expenseReportIri: string, imageUrl: stri
     },
     body: JSON.stringify({
       expenseReport: expenseReportIri,
-      mediaObject: base64Image,
-      extension: 'jpg',
+      mediaObject: imageBase64,
+      extension,
     }),
   });
 

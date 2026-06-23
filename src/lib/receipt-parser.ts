@@ -2,16 +2,32 @@ import Anthropic from '@anthropic-ai/sdk';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export async function parseReceipt(imageUrl: string): Promise<{
+export async function parseReceipt(
+  imageUrl: string,
+  twilioAccountSid: string,
+  twilioAuthToken: string
+): Promise<{
   date: string;
   amount: number;
   currency: string;
   description: string;
+  imageBase64: string;
+  imageExtension: string;
 }> {
-  const imageResponse = await fetch(imageUrl);
+  const imageResponse = await fetch(imageUrl, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`,
+    },
+  });
+
+  if (!imageResponse.ok) {
+    throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+  }
+
   const imageBuffer = await imageResponse.arrayBuffer();
   const base64Image = Buffer.from(imageBuffer).toString('base64');
   const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+  const imageExtension = contentType.includes('png') ? 'png' : 'jpg';
 
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
@@ -44,5 +60,7 @@ export async function parseReceipt(imageUrl: string): Promise<{
     amount: Number(parsed.amount),
     currency: parsed.currency || 'EUR',
     description: parsed.description || 'Expense',
+    imageBase64: base64Image,
+    imageExtension,
   };
 }
