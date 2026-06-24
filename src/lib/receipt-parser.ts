@@ -14,14 +14,19 @@ export async function parseReceipt(
   imageBase64: string;
   imageExtension: string;
 }> {
-  const imageResponse = await fetch(imageUrl, {
+  let imageResponse = await fetch(imageUrl, {
     headers: {
       Authorization: `Basic ${Buffer.from(`${twilioAccountSid}:${twilioAuthToken}`).toString('base64')}`,
     },
   });
 
+  if (imageResponse.status === 401) {
+    // some Twilio sandbox media URLs are accessible without auth
+    imageResponse = await fetch(imageUrl);
+  }
+
   if (!imageResponse.ok) {
-    throw new Error(`Failed to fetch image: ${imageResponse.status}`);
+    throw new Error(`Failed to fetch image: ${imageResponse.status} (sid=${twilioAccountSid.slice(0, 8)}, hasToken=${!!twilioAuthToken})`);
   }
 
   const imageBuffer = await imageResponse.arrayBuffer();
