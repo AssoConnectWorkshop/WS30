@@ -56,11 +56,17 @@ async function handleMessage(
 ): Promise<NextResponse> {
   const normalized = bodyText.trim().toLowerCase();
 
+  if (normalized === 'reset') {
+    clearState(from);
+    return twimlResponse('State cleared. Send a receipt photo to start.');
+  }
+
   if (normalized === 'debug') {
+    clearState(from);
     const personIri = await getPersonIri(from);
     const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
     return twimlResponse(
-      `DEBUG:\nfrom=${from}\npersonIri=${personIri}\norgUlid=${orgUlid}\nhasApiKey=${!!process.env.ASSOCONNECT_API_KEY}\nhasTwilioToken=${!!authToken}\nhasTwilioSid=${!!accountSid}`
+      `DEBUG:\nfrom=${from}\npersonIri=${personIri}\norg=${orgUlid}\napiKey=${!!process.env.ASSOCONNECT_API_KEY}\ntoken=${!!authToken}\nsid=${!!accountSid}`
     );
   }
 
@@ -118,9 +124,10 @@ async function handleMessage(
         return twimlResponse(
           `Expense report created successfully!\n${state.data.date} - ${state.data.description} (${state.data.amount} ${state.data.currency})`
         );
-      } catch {
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         clearState(from);
-        return twimlResponse('Error creating expense report. Please try again.');
+        return twimlResponse(msg.slice(0, 320));
       }
     } else {
       clearState(from);
