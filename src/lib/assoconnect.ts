@@ -59,7 +59,6 @@ export async function createExpenseReport(data: {
       organization: `/api/v1/organizations/${orgUlid}`,
       person: data.personIri,
       date: data.date,
-      category: 'other',
       comment: data.description,
       amount: {
         amount: data.amount,
