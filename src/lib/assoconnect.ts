@@ -49,8 +49,9 @@ export async function createExpenseReport(data: {
   const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
 
   const payload = {
-    organization: `/api/v1/organizations/${orgUlid}`,
+    organization: `/api/v1/organization/${orgUlid}`,
     person: data.personIri,
+    category: 'travel',
     date: data.date,
     comment: data.description,
     amount: {
