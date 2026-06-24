@@ -56,6 +56,14 @@ async function handleMessage(
 ): Promise<NextResponse> {
   const normalized = bodyText.trim().toLowerCase();
 
+  if (normalized === 'debug') {
+    const personIri = await getPersonIri(from);
+    const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
+    return twimlResponse(
+      `DEBUG:\nfrom=${from}\npersonIri=${personIri}\norgUlid=${orgUlid}\nhasApiKey=${!!process.env.ASSOCONNECT_API_KEY}\nhasTwilioToken=${!!authToken}\nhasTwilioSid=${!!accountSid}`
+    );
+  }
+
   if (normalized === 'pending' || normalized === 'en attente') {
     try {
       const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
