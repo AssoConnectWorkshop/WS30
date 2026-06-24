@@ -72,7 +72,8 @@ export async function createExpenseReport(data: {
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`400 payload=${JSON.stringify(payload)} error=${detail}`);
+    console.error('AssoConnect POST /finance_expense_reports failed', JSON.stringify(payload), detail);
+    throw new Error(`AC400: ${detail.slice(0, 200)}`);
   }
 
   const result = await response.json();
