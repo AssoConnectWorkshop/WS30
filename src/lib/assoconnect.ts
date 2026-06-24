@@ -48,6 +48,17 @@ export async function createExpenseReport(data: {
 }): Promise<string> {
   const orgUlid = process.env.ASSOCONNECT_ORGANIZATION_ULID;
 
+  const payload = {
+    organization: `/api/v1/organizations/${orgUlid}`,
+    person: data.personIri,
+    date: data.date,
+    comment: data.description,
+    amount: {
+      amount: data.amount,
+      currency: data.currency,
+    },
+  };
+
   const response = await fetch(`${BASE_URL}/finance_expense_reports`, {
     method: 'POST',
     headers: {
@@ -55,20 +66,12 @@ export async function createExpenseReport(data: {
       'Accept': 'application/ld+json',
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      organization: `/api/v1/organizations/${orgUlid}`,
-      person: data.personIri,
-      date: data.date,
-      comment: data.description,
-      amount: {
-        amount: data.amount,
-        currency: data.currency,
-      },
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
-    throw new Error(`AssoConnect API error: ${response.status} ${await response.text()}`);
+    const detail = await response.text();
+    throw new Error(`400 payload=${JSON.stringify(payload)} error=${detail}`);
   }
 
   const result = await response.json();
